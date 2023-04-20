@@ -20,10 +20,10 @@ security:
             logout:
                 path: app_logout
 
-            form_login:
-                login_path: app_login #redirects unauthenticated visitors to the login_path
-                check_path: app_login
-                enable_csrf: true
+            # form_login:
+            #     login_path: app_login #redirects unauthenticated visitors to the login_path
+            #     check_path: app_login
+            #     enable_csrf: true
 
             json_login:
                 check_path: app_jsonLogin
@@ -37,7 +37,7 @@ security:
     # Easy way to control access for large sections of your site
     # Note: Only the *first* access control that matches will be used
     access_control:
-        # - { path: ^/admin, roles: ROLE_ADMIN }
+        - { path: ^/admin, roles: ROLE_ADMIN }
         - { path: ^/user, roles: ROLE_USER }
 
 when@test:
