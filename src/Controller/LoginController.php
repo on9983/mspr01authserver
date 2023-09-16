@@ -2,9 +2,11 @@
 
 namespace App\Controller;
 
+use App\Entity\User;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Annotation\Route;
+use Symfony\Component\Security\Http\Attribute\CurrentUser;
 use Symfony\Component\Security\Http\Authentication\AuthenticationUtils;
 
 class LoginController extends AbstractController
@@ -33,11 +35,19 @@ class LoginController extends AbstractController
 
 
 
-    #[Route(path: '/login/jsonLogin', name: 'app_jsonLogin', methods: ['POST'])]
-    public function jsonLogin()
+    #[Route(path: '/jsonLogin', name: 'app_jsonLogin', methods: ['POST'])]
+    public function jsonLogin(#[CurrentUser] ?User $user)
     {
         //voir https://symfony.com/doc/current/security.html pour api login
-        $user = $this->getUser();
+        //$user = $this->getUser();
+
+        if (null === $user) 
+        {
+            return $this->json([
+                'message' => 'missing credentials 2 auth',
+            ], Response::HTTP_UNAUTHORIZED);
+        }
+        
         return $this->json([
             'token' => "G&GGHYJ&56",
             'message' => 'Welcome to your new controller!',
