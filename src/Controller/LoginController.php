@@ -4,6 +4,7 @@ namespace App\Controller;
 
 use App\Entity\User;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
+use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Annotation\Route;
 use Symfony\Component\Security\Http\Attribute\CurrentUser;
@@ -26,34 +27,30 @@ class LoginController extends AbstractController
     //     ]);
     // }
 
-    #[Route('/logout', name: 'app_logout', methods: ['GET'])]
-    public function logout()
-    {
-        // controller can be blank: it will never be called
-        throw new \Exception('Don\'t forget to activate logout in security.yaml');
-    }
+    // #[Route('/logout', name: 'app_logout', methods: ['GET'])]
+    // // public function logout()
+    // // {
+    // //     // controller can be blank: it will never be called
+    // //     throw new \Exception('Don\'t forget to activate logout in security.yaml');
+    // // }
 
 
 
     #[Route(path: '/jsonLogin', name: 'app_jsonLogin', methods: ['POST'])]
     public function jsonLogin(#[CurrentUser] ?User $user)
     {
-        //voir https://symfony.com/doc/current/security.html pour api login
-        //$user = $this->getUser();
 
-        if (null === $user) 
-        {
-            return $this->json([
-                'message' => 'missing credentials 2 auth',
-            ], Response::HTTP_UNAUTHORIZED);
+        $user = $this->getUser();
+        if ($user) {
+            return new JsonResponse([
+                'resp' => true
+            ]);
         }
-        
+
         return $this->json([
-            'token' => "G&GGHYJ&56",
-            'message' => 'Welcome to your new controller!',
-            'username' => $user->getUserIdentifier(),
-            'roles' => $user->getRoles()
-        ]);
+            'message' => 'missing credentials',
+        ], Response::HTTP_UNAUTHORIZED);
+
 
     }
 

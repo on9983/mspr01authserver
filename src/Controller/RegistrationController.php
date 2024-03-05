@@ -10,6 +10,7 @@ use Doctrine\ORM\EntityManagerInterface;
 use Doctrine\Persistence\ManagerRegistry;
 use Symfony\Bridge\Twig\Mime\TemplatedEmail;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
+use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Mime\Address;
@@ -27,41 +28,53 @@ class RegistrationController extends AbstractController
         $this->emailVerifier = $emailVerifier;
     }
 
-    #[Route('/register', name: 'app_register')]
-    public function register(Request $request, UserPasswordHasherInterface $userPasswordHasher, EntityManagerInterface $entityManager): Response
+    #[Route('/register', name: 'app_register', methods: ['POST'])]
+    public function register(Request $request, UserPasswordHasherInterface $userPasswordHasher, EntityManagerInterface $entityManager, UserRepository $userRepository): Response
     {
-        $user = new User();
-        $form = $this->createForm(RegistrationFormType::class, $user);
-        $form->handleRequest($request);
+        $data = json_decode($request->getContent(), true);
 
-        if ($form->isSubmitted() && $form->isValid()) {
-            // encode the plain password
-            $user->setPassword(
-                $userPasswordHasher->hashPassword(
-                    $user,
-                    $form->get('plainPassword')->getData()
-                )
-            );
 
-            $entityManager->persist($user);
-            $entityManager->flush();
+        try {
+            $userEmail = $data["username"];
+            $userPw = $data["password"];
 
-            // generate a signed url and email it to the user
-            $this->emailVerifier->sendEmailConfirmation('app_verify_email', $user,
-                (new TemplatedEmail())
-                    ->from(new Address('mailerbot@arosagemsprtest.fr', 'Mailer Verif Bot'))
-                    ->to($user->getEmail())
-                    ->subject('Please Confirm your Email')
-                    ->htmlTemplate('registration/confirmation_email.html.twig')
-            );
-            // do anything else you need here, like send an email
+            $findUserByEmail = $userRepository->findOneByEmail($userEmail);
+            if ($findUserByEmail === null) {
 
-            return $this->redirectToRoute('app_register');
+                $user = new User();
+                $user->setEmail($userEmail);
+                $user->setPassword(
+                    $userPasswordHasher->hashPassword(
+                        $user,
+                        $userPw
+                    )
+                );
+
+                $entityManager->persist($user);
+                $entityManager->flush();
+
+                // $this->emailVerifier->sendEmailConfirmation('app_verify_email', $user,
+                //     (new TemplatedEmail())
+                //         ->from(new Address('mailerbot@arosagemsprtest.fr', 'Mailer Verif Bot'))
+                //         ->to($user->getEmail())
+                //         ->subject('Please Confirm your Email')
+                //         ->htmlTemplate('registration/confirmation_email.html.twig')
+                // );
+
+                return new JsonResponse([
+                    'traité' => true
+                ]);
+            } else {
+                return new JsonResponse([
+                    'message' => "Compte déja existant."
+                ]);
+            }
+
+        } catch (error) {
+            return new JsonResponse([
+                'error' => 'error'
+            ]);
         }
-
-        return $this->render('registration/register.html.twig', [
-            'registrationForm' => $form->createView(),
-        ]);
     }
 
     #[Route('/verify/email', name: 'app_verify_email')]
@@ -72,16 +85,16 @@ class RegistrationController extends AbstractController
         // validate email confirmation link, sets User::isVerified=true and persists
         try {
             $this->emailVerifier->handleEmailConfirmation($request, $this->getUser());
+            return new JsonResponse([
+                'verified' => true
+            ]);
         } catch (VerifyEmailExceptionInterface $exception) {
             $this->addFlash('verify_email_error', $translator->trans($exception->getReason(), [], 'VerifyEmailBundle'));
-
-            return $this->redirectToRoute('app_register');
+            return new JsonResponse([
+                'error' => 'error'
+            ]);
         }
 
-        // @TODO Change the redirect on success and handle or remove the flash message in your templates
-        $this->addFlash('success', 'Your email address has been verified.');
-
-        return $this->redirectToRoute('app_register');
     }
 
 
@@ -90,16 +103,17 @@ class RegistrationController extends AbstractController
     public function registerJson(Request $request, UserPasswordHasherInterface $userPasswordHasherInterface, UserRepository $userRepository): Response
     {
         $userNew = new User;
-        $rep = $request->getContent();          
+        $rep = $request->getContent();
         $data = json_decode($rep, true);
         $userNew->setEmail($data["username"]);
         $userNew->setPassword(
             $userPasswordHasherInterface->hashPassword(
                 $userNew,
                 $data["pwd"]
-            ));
+            )
+        );
 
-        $userRepository->save($userNew,true);
+        $userRepository->save($userNew, true);
 
         return $this->json([
             'token' => "G&GGHYJ&58",
