@@ -6,8 +6,11 @@ use App\Entity\User;
 use App\Form\RegistrationFormType;
 use App\Repository\UserRepository;
 use App\Security\EmailVerifier;
+use App\Service\SendMailService;
 use Doctrine\ORM\EntityManagerInterface;
 use Doctrine\Persistence\ManagerRegistry;
+use Error;
+use ErrorException;
 use Symfony\Bridge\Twig\Mime\TemplatedEmail;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
@@ -29,8 +32,13 @@ class RegistrationController extends AbstractController
     }
 
     #[Route('/register', name: 'app_register', methods: ['POST'])]
-    public function register(Request $request, UserPasswordHasherInterface $userPasswordHasher, EntityManagerInterface $entityManager, UserRepository $userRepository): Response
-    {
+    public function register(
+        Request $request,
+        UserPasswordHasherInterface $userPasswordHasher,
+        EntityManagerInterface $entityManager,
+        UserRepository $userRepository,
+        SendMailService $sendMailService
+    ): Response {
         $data = json_decode($request->getContent(), true);
 
 
@@ -50,8 +58,8 @@ class RegistrationController extends AbstractController
                     )
                 );
 
-                $entityManager->persist($user);
-                $entityManager->flush();
+                // $entityManager->persist($user);
+                // $entityManager->flush();
 
                 // $this->emailVerifier->sendEmailConfirmation('app_verify_email', $user,
                 //     (new TemplatedEmail())
@@ -60,6 +68,20 @@ class RegistrationController extends AbstractController
                 //         ->subject('Please Confirm your Email')
                 //         ->htmlTemplate('registration/confirmation_email.html.twig')
                 // );
+
+                try {
+                    $sendMailService->send(
+                        'onbot.noreply@gmail.com',
+                        "nicolas.ourdouille@outlook.fr", //$user->getEmail(),
+                        'Activation de votre compte',
+                        'register',
+                        compact('user')
+                    );
+                }catch(\Exception $ex) {
+                    return new JsonResponse([
+                        'error' => $ex->getMessage()
+                    ]);
+                }
 
                 return new JsonResponse([
                     'traité' => true
@@ -99,31 +121,31 @@ class RegistrationController extends AbstractController
 
 
 
-    #[Route('/registerJson', name: 'app_registerJson')]
-    public function registerJson(Request $request, UserPasswordHasherInterface $userPasswordHasherInterface, UserRepository $userRepository): Response
-    {
-        $userNew = new User;
-        $rep = $request->getContent();
-        $data = json_decode($rep, true);
-        $userNew->setEmail($data["username"]);
-        $userNew->setPassword(
-            $userPasswordHasherInterface->hashPassword(
-                $userNew,
-                $data["pwd"]
-            )
-        );
+    // #[Route('/registerJson', name: 'app_registerJson')]
+    // public function registerJson(Request $request, UserPasswordHasherInterface $userPasswordHasherInterface, UserRepository $userRepository): Response
+    // {
+    //     $userNew = new User;
+    //     $rep = $request->getContent();
+    //     $data = json_decode($rep, true);
+    //     $userNew->setEmail($data["username"]);
+    //     $userNew->setPassword(
+    //         $userPasswordHasherInterface->hashPassword(
+    //             $userNew,
+    //             $data["pwd"]
+    //         )
+    //     );
 
-        $userRepository->save($userNew, true);
+    //     $userRepository->save($userNew, true);
 
-        return $this->json([
-            'token' => "G&GGHYJ&58",
-            'message' => 'User added',
-            'username' => $userNew->getUserIdentifier(),
-            'roles' => $userNew->getRoles()
-        ]);
+    //     return $this->json([
+    //         'token' => "G&GGHYJ&58",
+    //         'message' => 'User added',
+    //         'username' => $userNew->getUserIdentifier(),
+    //         'roles' => $userNew->getRoles()
+    //     ]);
 
 
-    }
+    // }
 
 
 
