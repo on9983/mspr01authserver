@@ -1,9 +1,20 @@
 <h1>Activez votre compte</h1>
 
-{# <p>Bonjour {{ user.firstname }},</p> #}
+<p><B>Si cette démarche n'a pas été faite par vos soin, veuillez ignorer ce mail, quelqu'un a possiblement renseigné votre boite mail par erreur.</B></p>
+<br/>
 
-<p>Votre inscription sur le site de gestion de véhicule est à valider en cliquand ssur le lien ci-dessous :</p>
-<p><a href="/#">Lien</a></p>
+<p>Afin de finaliser votre inscription sur le site de gestion de véhicule, vous devez valider votre email grâce à ce lien ci-dessous.</p>
+
+
+<p><a href="{{ absolute_url(path('verify_user', {token:token})) }}">{{ absolute_url(path('verify_user', {token:token})) }}</a></p>
+
 <p>Ce lien expirera dans 3 heures.</p>
+
+
+<br/>
+
+<p>Cordialement,<br/>
+M. Ourdouillé Nicolas, le développeur</p>
+
 
 

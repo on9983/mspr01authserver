@@ -3,6 +3,7 @@
 namespace App\Entity;
 
 use App\Repository\UserRepository;
+use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
 use Symfony\Bridge\Doctrine\Validator\Constraints\UniqueEntity;
 use Symfony\Component\Security\Core\User\PasswordAuthenticatedUserInterface;
@@ -31,6 +32,13 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
 
     #[ORM\Column(type: 'boolean')]
     private $isVerified = false;
+
+    #[ORM\Column(length: 100, nullable: true)]
+    private ?string $jeton = null;
+
+    #[ORM\Column(nullable: true)]
+    private ?int $jetonExpiration = null;
+
 
     public function getId(): ?int
     {
@@ -113,4 +121,29 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
 
         return $this;
     }
+
+    public function getJeton(): ?string
+    {
+        return $this->jeton;
+    }
+
+    public function setJeton(?string $jeton): self
+    {
+        $this->jeton = $jeton;
+
+        return $this;
+    }
+
+    public function getJetonExpiration(): ?int
+    {
+        return $this->jetonExpiration;
+    }
+
+    public function setJetonExpiration(?int $jetonExpiration): self
+    {
+        $this->jetonExpiration = $jetonExpiration;
+
+        return $this;
+    }
+
 }

@@ -6,11 +6,13 @@ use App\Entity\User;
 use App\Form\RegistrationFormType;
 use App\Repository\UserRepository;
 use App\Security\EmailVerifier;
+use App\Service\JWTService;
 use App\Service\SendMailService;
 use Doctrine\ORM\EntityManagerInterface;
 use Doctrine\Persistence\ManagerRegistry;
 use Error;
 use ErrorException;
+use phpDocumentor\Reflection\Types\Void_;
 use Symfony\Bridge\Twig\Mime\TemplatedEmail;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
@@ -37,7 +39,8 @@ class RegistrationController extends AbstractController
         UserPasswordHasherInterface $userPasswordHasher,
         EntityManagerInterface $entityManager,
         UserRepository $userRepository,
-        SendMailService $sendMailService
+        SendMailService $sendMailService,
+        JWTService $jwtService
     ): Response {
         $data = json_decode($request->getContent(), true);
 
@@ -58,8 +61,8 @@ class RegistrationController extends AbstractController
                     )
                 );
 
-                // $entityManager->persist($user);
-                // $entityManager->flush();
+                $entityManager->persist($user);
+                $entityManager->flush();
 
                 // $this->emailVerifier->sendEmailConfirmation('app_verify_email', $user,
                 //     (new TemplatedEmail())
@@ -69,55 +72,159 @@ class RegistrationController extends AbstractController
                 //         ->htmlTemplate('registration/confirmation_email.html.twig')
                 // );
 
+                $token = $this->makeToken($jwtService,$user);
+
                 try {
                     $sendMailService->send(
-                        'onbot.noreply@gmail.com',
-                        "nicolas.ourdouille@outlook.fr", //$user->getEmail(),
+                        'mail-checker.onbot-noreply@gmail.com',
+                        $userEmail,
                         'Activation de votre compte',
                         'register',
-                        compact('user')
+                        compact('user', 'token')
                     );
-                }catch(\Exception $ex) {
+                    return new JsonResponse([
+                        'traité' => true,
+                        'message' => "Email de vérification envoyé."
+                    ]);
+                } catch (\Exception $ex) {
                     return new JsonResponse([
                         'error' => $ex->getMessage()
                     ]);
                 }
-
-                return new JsonResponse([
-                    'traité' => true
-                ]);
             } else {
                 return new JsonResponse([
                     'message' => "Compte déja existant."
                 ]);
             }
 
-        } catch (error) {
+        } catch (\Exception $ex) {
             return new JsonResponse([
                 'error' => 'error'
             ]);
         }
     }
 
-    #[Route('/verify/email', name: 'app_verify_email')]
-    public function verifyUserEmail(Request $request, TranslatorInterface $translator): Response
+
+    #[Route('register/verif/{token}', name: 'verify_user')]
+    public function verifyUser($token, JWTService $jwt, UserRepository $userRepository): Response
     {
-        $this->denyAccessUnlessGranted('IS_AUTHENTICATED_FULLY');
+        $token = str_replace(['='], ['.'], $token);
+        if ($jwt->isValid($token) && !$jwt->isExpired($token) && !$jwt->checkSignature($token, $this->getParameter('app.jwtsecret'))) {
+            $payload = $jwt->getPayload($token);
+            $user = $userRepository->findOneByEmail($payload['user_email']);
+            if ($user){ 
+                if (!$user->isVerified()) {
+                    $user->setIsVerified(true);
+                    $userRepository->save($user, true);
+                    return $this->redirectToRoute('app_verif_success');
+                }
+                else 
+                {
+                    return $this->redirectToRoute("app_verif_echec");
+                }
+            }
+            return $this->redirectToRoute("app_verif_echec");
+        }
+        return $this->redirectToRoute("app_verif_echec");
+    }
 
-        // validate email confirmation link, sets User::isVerified=true and persists
+    #[Route("/register/test/verifSuccess", name:"app_verif_success")]
+    public function appVerifSuccess(): Response
+    {
+        return $this->render("message/messageSuccess.html.twig");
+    }
+
+    #[Route("/register/test/verifEchec", name:"app_verif_echec")]
+    public function appVerifEchec(): Response
+    {
+        return $this->render("message/messageEchec.html.twig");
+    }
+
+
+    #[Route('/register/renvoiverif', name: 'resend_verif')]
+    public function resendVerif(Request $request, JWTService $jwtService, SendMailService $sendMailService, UserRepository $userRepository): Response
+    {
         try {
-            $this->emailVerifier->handleEmailConfirmation($request, $this->getUser());
-            return new JsonResponse([
-                'verified' => true
-            ]);
-        } catch (VerifyEmailExceptionInterface $exception) {
-            $this->addFlash('verify_email_error', $translator->trans($exception->getReason(), [], 'VerifyEmailBundle'));
+            $data = json_decode($request->getContent(), true);
+            $userEmail = $data["username"];
+
+            $findUserByEmail = $userRepository->findOneByEmail($userEmail);
+
+            $this->makeToken($jwtService,$findUserByEmail);
+            try {
+                $sendMailService->send(
+                    'mail-checker.onbot-noreply@gmail.com',
+                    $userEmail,
+                    'Activation de votre compte',
+                    'register',
+                    compact('user', 'token')
+                );
+                return new JsonResponse([
+                    'traité' => true,
+                    'message' => "Email de vérification envoyé."
+                ]);
+            } catch (\Exception $ex) {
+                return new JsonResponse([
+                    'error' => $ex->getMessage()
+                ]);
+            }
+
+
+            if ($findUserByEmail->IsVerified()) {
+                return new JsonResponse([
+                    'message' => "Email déja validé."
+                ]);
+            }
+        } catch (\Exception $e) {
             return new JsonResponse([
                 'error' => 'error'
             ]);
         }
-
     }
+
+
+    private function makeToken(
+        JWTService $jwtService,
+        User $user
+    ):String
+    {
+        $header = [
+            "typ" => "JWT",
+            "alg" => 'HS256'
+        ];
+
+        $payload = [
+            'user_email' => $user->getEmail(),
+        ];
+
+        $token = $jwtService->generate($header, $payload, $this->getParameter('app.jwtsecret'));
+
+        return $token;
+    }
+
+
+
+
+    // #[Route('/verify/email', name: 'app_verify_email')]
+    // public function verifyUserEmail(Request $request, TranslatorInterface $translator): Response
+    // {
+    //     $this->denyAccessUnlessGranted('IS_AUTHENTICATED_FULLY');
+
+    //     // validate email confirmation link, sets User::isVerified=true and persists
+    //     try {
+    //         $this->emailVerifier->handleEmailConfirmation($request, $this->getUser());
+    //         return new JsonResponse([
+    //             'verified' => true
+    //         ]);
+    //     } catch (VerifyEmailExceptionInterface $exception) {
+    //         $this->addFlash('verify_email_error', $translator->trans($exception->getReason(), [], 'VerifyEmailBundle'));
+    //         return new JsonResponse([
+    //             'error' => 'error'
+    //         ]);
+    //     }
+    // }
+
+
 
 
 

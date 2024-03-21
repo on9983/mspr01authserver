@@ -16,7 +16,7 @@ class SendMailService
     public function send(string $from,string $to, string $subject, string $template, array $context = []):Void
     {
         $email = (new TemplatedEmail())
-            ->from($from)
+            ->from(new Address($from, 'Mailer Verif Bot'))
             ->to($to)
             ->subject($subject)
             ->htmlTemplate("email/$template.html.twig")
