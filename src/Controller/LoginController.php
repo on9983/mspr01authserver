@@ -21,14 +21,28 @@ class LoginController extends AbstractController
 {
 
     #[Route(path: '/jsonLogin', name: 'app_jsonLogin', methods: ['POST'])]
-    public function jsonLogin(#[CurrentUser] ?User $user)
+    public function jsonLogin(#[CurrentUser] ?User $user,UserRepository $userRepository)
     {
 
         $user = $this->getUser();
-        if ($user) {
-            return new JsonResponse([
-                'resp' => true
-            ]);
+        $user = $userRepository->findOneByEmail($user->getUserIdentifier());
+
+        if ($user) 
+        {
+            if($user->isActive())
+            {
+                return new JsonResponse([
+                    'traited' => true,
+                    'uid' => $user->getUid(),
+                    'message' => "Connecté avec success."
+                ]);
+            }
+            else
+            {
+                return new JsonResponse([
+                    'message' => "Votre compte à été déactivé pour un certain temps."
+                ]);
+            }
         }
 
         return $this->json([
@@ -53,31 +67,39 @@ class LoginController extends AbstractController
             $userEmail = $data["username"];
             $user = $userRepository->findOneByEmail($userEmail);
 
-            $token = $tokenGeneratorInterface->generateToken();
-            $user->setJeton($token);
-            $now = new DateTimeImmutable();
-            $user->setJetonExpiration($now->getTimestamp() + 900);
+            if($user->isActive())
+            {
+                $token = $tokenGeneratorInterface->generateToken();
+                $user->setJeton($token);
+                $now = new DateTimeImmutable();
+                $user->setJetonExpiration($now->getTimestamp() + 900);
 
-            $userRepository->save($user, true);
-            
-            try {
-                $sendMailService->send(
-                    'mail-checker.onbot-noreply@gmail.com',
-                    $userEmail,
-                    'Changement de mot de passe de votre compte',
-                    'pwd-change',
-                    compact('token')
-                );
+                $userRepository->save($user, true);
+                
+                try {
+                    $sendMailService->send(
+                        'mail-checker.onbot-noreply@gmail.com',
+                        $userEmail,
+                        'Changement de mot de passe de votre compte',
+                        'pwd-change',
+                        compact('token')
+                    );
+                    return new JsonResponse([
+                        'traited' => true,
+                        'message' => "Un email de changement de mot de pass a été envoyé."
+                    ]);
+                } catch (\Exception $ex) {
+                    return new JsonResponse([
+                        'error' => 'error'
+                    ]);
+                }
+            }
+            else
+            {
                 return new JsonResponse([
-                    'traité' => true,
-                    'message' => "Un email de changement de mot de pass a été envoyé."
-                ]);
-            } catch (\Exception $ex) {
-                return new JsonResponse([
-                    'error' => 'error'
+                    'message' => "Votre compte à été déactivé pour un certain temps."
                 ]);
             }
-
 
         } catch (\Exception $ex) {
             return new JsonResponse([
@@ -121,7 +143,7 @@ class LoginController extends AbstractController
                         $userRepository->save($user, true);
 
                         return new JsonResponse([
-                            'traité' => true,
+                            'traited' => true,
                             'message' => "Le mot de passe a été modifié avec success."
                         ]);
                     }
@@ -136,7 +158,7 @@ class LoginController extends AbstractController
             }
 
             return new JsonResponse([
-                'error' => 'error'
+                'message' => 'Pas de jeton disponible. Ou alors, le jeton a déja été utilisé avec success.'
             ]);
 
         }

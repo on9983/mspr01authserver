@@ -18,6 +18,10 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     #[ORM\Column]
     private ?int $id = null;
 
+    #[ORM\Column(length: 100, unique: true)]
+    private ?string $uid = null;
+    
+
     #[ORM\Column(length: 180, unique: true)]
     private ?string $email = null;
 
@@ -38,6 +42,11 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
 
     #[ORM\Column(nullable: true)]
     private ?int $jetonExpiration = null;
+
+    #[ORM\Column]
+    private ?bool $active = null;
+
+
 
 
     public function getId(): ?int
@@ -142,6 +151,30 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     public function setJetonExpiration(?int $jetonExpiration): self
     {
         $this->jetonExpiration = $jetonExpiration;
+
+        return $this;
+    }
+
+    public function getUid(): ?string
+    {
+        return $this->uid;
+    }
+
+    public function setUid(?string $uid): self
+    {
+        $this->uid = $uid;
+
+        return $this;
+    }
+
+    public function isActive(): ?bool
+    {
+        return $this->active;
+    }
+
+    public function setActive(bool $active): self
+    {
+        $this->active = $active;
 
         return $this;
     }

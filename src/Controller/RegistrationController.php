@@ -60,17 +60,27 @@ class RegistrationController extends AbstractController
                         $userPw
                     )
                 );
+                
+                
+                // Uid Generation
+
+                $users = $userRepository->findAll();
+                restart:
+                $user->setUid(bin2hex(random_bytes(8)."_".random_bytes(8)));
+                $a=true;
+                foreach($users as $user_i) {
+                    if($user_i->getUid() === $user->getUid()){
+                        $a=false;
+                        break;
+                    }
+                }
+                if($a==false){goto restart;}
+
+                $user->setActive(true);
+                
 
                 $entityManager->persist($user);
                 $entityManager->flush();
-
-                // $this->emailVerifier->sendEmailConfirmation('app_verify_email', $user,
-                //     (new TemplatedEmail())
-                //         ->from(new Address('mailerbot@arosagemsprtest.fr', 'Mailer Verif Bot'))
-                //         ->to($user->getEmail())
-                //         ->subject('Please Confirm your Email')
-                //         ->htmlTemplate('registration/confirmation_email.html.twig')
-                // );
 
                 $token = $this->makeToken($jwtService,$user);
 
@@ -83,7 +93,7 @@ class RegistrationController extends AbstractController
                         compact('user', 'token')
                     );
                     return new JsonResponse([
-                        'traité' => true,
+                        'traited' => true,
                         'message' => "Email de vérification envoyé."
                     ]);
                 } catch (\Exception $ex) {
@@ -99,7 +109,7 @@ class RegistrationController extends AbstractController
 
         } catch (\Exception $ex) {
             return new JsonResponse([
-                'error' => 'error'
+                'error' => $ex->getMessage()
             ]);
         }
     }
@@ -160,7 +170,7 @@ class RegistrationController extends AbstractController
                     compact('user', 'token')
                 );
                 return new JsonResponse([
-                    'traité' => true,
+                    'traited' => true,
                     'message' => "Email de vérification envoyé."
                 ]);
             } catch (\Exception $ex) {
