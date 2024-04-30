@@ -140,12 +140,23 @@ class LoginController extends AbstractController
                         );
                         $user->setJetonExpiration(null);
                         $user->setJeton(null);
+                        $user->setIsVerified(true);
                         $userRepository->save($user, true);
 
-                        return new JsonResponse([
-                            'traited' => true,
-                            'message' => "Le mot de passe a été modifié avec success."
-                        ]);
+                        if ($user->isVerified()) {
+                            return new JsonResponse([
+                                'traited' => true,
+                                'message' => "Le mot de passe a été modifié avec success."
+                            ]);
+                        }else{
+                            $user->setIsVerified(true);
+                            $userRepository->save($user, true);
+
+                            return new JsonResponse([
+                                'traited' => true,
+                                'message' => "Le mot de passe a été modifié avec success. Votre email à également été validé."
+                            ]);
+                        }
                     }
                     else
                     {

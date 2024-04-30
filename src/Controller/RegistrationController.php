@@ -42,10 +42,11 @@ class RegistrationController extends AbstractController
         SendMailService $sendMailService,
         JWTService $jwtService
     ): Response {
-        $data = json_decode($request->getContent(), true);
-
-
         try {
+            $data = json_decode($request->getContent(), true);
+
+
+        
             $userEmail = $data["username"];
             $userPw = $data["password"];
 
