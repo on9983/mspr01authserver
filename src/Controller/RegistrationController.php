@@ -6,8 +6,11 @@ use App\Entity\User;
 use App\Form\RegistrationFormType;
 use App\Repository\UserRepository;
 use App\Security\EmailVerifier;
+use App\Service\DevOnly;
 use App\Service\JWTService;
+use App\Service\RandomString;
 use App\Service\SendMailService;
+use DateTimeImmutable;
 use Doctrine\ORM\EntityManagerInterface;
 use Doctrine\Persistence\ManagerRegistry;
 use Error;
@@ -26,11 +29,16 @@ use SymfonyCasts\Bundle\VerifyEmail\Exception\VerifyEmailExceptionInterface;
 
 class RegistrationController extends AbstractController
 {
-    private EmailVerifier $emailVerifier;
 
-    public function __construct(EmailVerifier $emailVerifier)
+    
+
+    public function __construct(
+        private EmailVerifier $emailVerifier,
+        private DevOnly $devOnly,
+        )
     {
         $this->emailVerifier = $emailVerifier;
+        $this->devOnly = $devOnly;
     }
 
     #[Route('/register', name: 'app_register', methods: ['POST'])]
@@ -44,8 +52,6 @@ class RegistrationController extends AbstractController
     ): Response {
         try {
             $data = json_decode($request->getContent(), true);
-
-
         
             $userEmail = $data["username"];
             $userPw = $data["password"];
@@ -83,25 +89,11 @@ class RegistrationController extends AbstractController
                 $entityManager->persist($user);
                 $entityManager->flush();
 
-                $token = $this->makeToken($jwtService,$user);
+                return new JsonResponse([
+                    'traited' => true,
+                    'message' => "Votre compte a été créé avec success."
+                ]);
 
-                try {
-                    $sendMailService->send(
-                        'mail-checker.onbot-noreply@gmail.com',
-                        $userEmail,
-                        'Activation de votre compte',
-                        'register',
-                        compact('user', 'token')
-                    );
-                    return new JsonResponse([
-                        'traited' => true,
-                        'message' => "Email de vérification envoyé."
-                    ]);
-                } catch (\Exception $ex) {
-                    return new JsonResponse([
-                        'error' => $ex->getMessage()
-                    ]);
-                }
             } else {
                 return new JsonResponse([
                     'message' => "Compte déja existant."
@@ -110,85 +102,134 @@ class RegistrationController extends AbstractController
 
         } catch (\Exception $ex) {
             return new JsonResponse([
-                'error' => $ex->getMessage()
+                'error' => $this->devOnly->displayError($ex->getMessage())
             ]);
         }
     }
 
 
-    #[Route('register/verif/{token}', name: 'verify_user')]
-    public function verifyUser($token, JWTService $jwt, UserRepository $userRepository): Response
+    #[Route('register/verif', name: 'verify_user')]
+    public function verifyUser(Request $request, JWTService $jwt, UserRepository $userRepository): Response
     {
-        $token = str_replace(['='], ['.'], $token);
-        if ($jwt->isValid($token) && !$jwt->isExpired($token) && !$jwt->checkSignature($token, $this->getParameter('app.jwtsecret'))) {
-            $payload = $jwt->getPayload($token);
-            $user = $userRepository->findOneByEmail($payload['user_email']);
-            if ($user){ 
-                if (!$user->isVerified()) {
-                    $user->setIsVerified(true);
-                    $userRepository->save($user, true);
-                    return $this->redirectToRoute('app_verif_success');
-                }
-                else 
+        $data = json_decode($request->getContent(), true);
+
+        try {
+            $userUid = $data["username"];
+            $userJeton = $data["jeton"];
+
+            $user = $userRepository->findOneByUid($userUid);
+            if ($user) 
+            {
+                $now = new DateTimeImmutable();
+                $jetonVerif = $user->getJeton();
+                if($jetonVerif)
                 {
-                    return $this->redirectToRoute("app_verif_echec");
+                    if($jetonVerif === $userJeton)
+                    {
+                        if($user->getJetonExpiration() > $now->getTimestamp()) 
+                        {
+                            $user->setIsVerified(true);
+                            $user->setJetonExpiration(null);
+                            $user->setJeton(null);
+                            $userRepository->save($user, true);
+
+                            return new JsonResponse([
+                                'traited' => true,
+                                'uid' => $user->getUid(),
+                                'message' => "Votre email a été validé avec success."
+                            ]);
+                        }
+                        else
+                        {
+                            return new JsonResponse([
+                                'error' => 'error',
+                                'message' => "Le jeton a expiré."
+                            ]);
+                        }
+                    }
                 }
+
+                return new JsonResponse([
+                    'message' => 'Pas de jeton disponible. Ou alors, le jeton a déja été utilisé avec success.'
+                ]);
             }
-            return $this->redirectToRoute("app_verif_echec");
+            return new JsonResponse([
+                'error' => 'error',
+                'message' => 'Utilisateur non valide. Le compte a peut-etre été supprimé.'
+            ]);
+
         }
-        return $this->redirectToRoute("app_verif_echec");
+        catch (\Exception $ex) {
+            return new JsonResponse([
+                'error' => 'error'
+            ]);
+        }
     }
 
-    #[Route("/register/test/verifSuccess", name:"app_verif_success")]
-    public function appVerifSuccess(): Response
-    {
-        return $this->render("message/messageSuccess.html.twig");
-    }
-
-    #[Route("/register/test/verifEchec", name:"app_verif_echec")]
-    public function appVerifEchec(): Response
-    {
-        return $this->render("message/messageEchec.html.twig");
-    }
-
-
-    #[Route('/register/renvoiverif', name: 'resend_verif')]
-    public function resendVerif(Request $request, JWTService $jwtService, SendMailService $sendMailService, UserRepository $userRepository): Response
+     #[Route('/register/sendverif', name: 'send_verif')]
+    public function sendVerif(
+        Request $request, 
+        JWTService $jwtService, 
+        SendMailService $sendMailService, 
+        UserRepository $userRepository,
+        RandomString $randomString,
+    ): Response
     {
         try {
             $data = json_decode($request->getContent(), true);
-            $userEmail = $data["username"];
+            $userUid = $data["username"];
 
-            $findUserByEmail = $userRepository->findOneByEmail($userEmail);
+            $user = $userRepository->findOneByUid($userUid);
 
-            $this->makeToken($jwtService,$findUserByEmail);
-            try {
-                $sendMailService->send(
-                    'mail-checker.onbot-noreply@gmail.com',
-                    $userEmail,
-                    'Activation de votre compte',
-                    'register',
-                    compact('user', 'token')
-                );
+            #$this->makeToken($jwtService,$findUserByEmail);
+            if ($user) 
+            {
+                if($user->isActive())
+                {
+                    if ($user->IsVerified()) {
+                        return new JsonResponse([
+                            'message' => "Email déja validé."
+                        ]);
+                    }
+
+                    $token = $randomString->generate();
+                    $user->setJeton($token);
+                    $now = new DateTimeImmutable();
+                    $user->setJetonExpiration($now->getTimestamp() + 900);
+
+                    $userRepository->save($user, true);
+
+                    try {
+                        $sendMailService->send(
+                            'mail-checker.onbot-noreply@gmail.com',
+                            $user->getEmail(),
+                            'Activation de votre compte',
+                            'register',
+                            compact('token')
+                        );
+                        return new JsonResponse([
+                            'traited' => true,
+                            'message' => "Email de vérification envoyé."
+                        ]);
+                    } catch (\Exception $ex) {
+                        return new JsonResponse([
+                            'error' => $this->devOnly->displayError($ex->getMessage())
+                        ]);
+                    }
+
+
+
+                }
                 return new JsonResponse([
-                    'traited' => true,
-                    'message' => "Email de vérification envoyé."
-                ]);
-            } catch (\Exception $ex) {
-                return new JsonResponse([
-                    'error' => $ex->getMessage()
+                    'message' => "Votre compte à été déactivé pour un certain temps."
                 ]);
             }
-
-
-            if ($findUserByEmail->IsVerified()) {
-                return new JsonResponse([
-                    'message' => "Email déja validé."
-                ]);
-            }
-        } catch (\Exception $e) {
             return new JsonResponse([
-                'error' => 'error'
+                'message' => "Utilisateur non valide. Le compte a peut-etre été supprimé."
+            ]);
+        } catch (\Exception $ex) {
+            return new JsonResponse([
+                'error' => $this->devOnly->displayError($ex->getMessage())
             ]);
         }
     }

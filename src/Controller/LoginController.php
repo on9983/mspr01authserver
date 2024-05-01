@@ -5,6 +5,7 @@ namespace App\Controller;
 use App\Entity\User;
 use App\Repository\UserRepository;
 use App\Service\JWTService;
+use App\Service\RandomString;
 use App\Service\SendMailService;
 use DateTimeImmutable;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
@@ -60,6 +61,7 @@ class LoginController extends AbstractController
         TokenGeneratorInterface $tokenGeneratorInterface,
         UserRepository $userRepository,
         UserPasswordHasherInterface $userPasswordHasher,
+        RandomString $randomString
     ): Response {
         $data = json_decode($request->getContent(), true);
 
@@ -69,7 +71,8 @@ class LoginController extends AbstractController
 
             if($user->isActive())
             {
-                $token = $tokenGeneratorInterface->generateToken();
+                // $token = $tokenGeneratorInterface->generateToken();
+                $token = $randomString->generate();
                 $user->setJeton($token);
                 $now = new DateTimeImmutable();
                 $user->setJetonExpiration($now->getTimestamp() + 900);
@@ -121,55 +124,60 @@ class LoginController extends AbstractController
             $userEmail = $data["username"];
             $userJeton = $data["jeton"];
             $userPw = $data["password"];
+
             $user = $userRepository->findOneByEmail($userEmail);
-
-            $now = new DateTimeImmutable();
-            $jetonVerif = $user->getJeton();
-
-            if($jetonVerif)
+            if ($user) 
             {
-                if($jetonVerif === $userJeton)
-                {
-                    if($user->getJetonExpiration() > $now->getTimestamp()) 
-                    {
-                        $user->setPassword(
-                            $userPasswordHasher->hashPassword(
-                                $user,
-                                $userPw
-                            )
-                        );
-                        $user->setJetonExpiration(null);
-                        $user->setJeton(null);
-                        $user->setIsVerified(true);
-                        $userRepository->save($user, true);
+                $now = new DateTimeImmutable();
+                $jetonVerif = $user->getJeton();
 
-                        if ($user->isVerified()) {
-                            return new JsonResponse([
-                                'traited' => true,
-                                'message' => "Le mot de passe a été modifié avec success."
-                            ]);
-                        }else{
-                            $user->setIsVerified(true);
+                if($jetonVerif)
+                {
+                    if($jetonVerif === $userJeton)
+                    {
+                        if($user->getJetonExpiration() > $now->getTimestamp()) 
+                        {
+                            $user->setPassword(
+                                $userPasswordHasher->hashPassword(
+                                    $user,
+                                    $userPw
+                                )
+                            );
+                            $user->setJetonExpiration(null);
+                            $user->setJeton(null);
                             $userRepository->save($user, true);
 
+                            if ($user->isVerified()) {
+                                return new JsonResponse([
+                                    'traited' => true,
+                                    'message' => "Le mot de passe a été modifié avec success."
+                                ]);
+                            }else{
+                                $user->setIsVerified(true);
+                                $userRepository->save($user, true);
+
+                                return new JsonResponse([
+                                    'traited' => true,
+                                    'message' => "Le mot de passe a été modifié avec success. Votre email à également été validé."
+                                ]);
+                            }
+                        }
+                        else
+                        {
                             return new JsonResponse([
-                                'traited' => true,
-                                'message' => "Le mot de passe a été modifié avec success. Votre email à également été validé."
+                                'error' => 'error',
+                                'message' => "Le jeton a expiré."
                             ]);
                         }
                     }
-                    else
-                    {
-                        return new JsonResponse([
-                            'error' => 'error',
-                            'message' => "Le jeton a expiré."
-                        ]);
-                    }
                 }
-            }
 
+                return new JsonResponse([
+                    'message' => 'Pas de jeton disponible. Ou alors, le jeton a déja été utilisé avec success.'
+                ]);
+            }
             return new JsonResponse([
-                'message' => 'Pas de jeton disponible. Ou alors, le jeton a déja été utilisé avec success.'
+                'error' => 'error',
             ]);
 
         }

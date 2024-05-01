@@ -14,7 +14,11 @@ WORKDIR /code
 COPY . .
 
 COPY nginx.conf /etc/nginx/nginx.conf
-#COPY php-docker.conf /etc/php81/php-fpm.d/www.conf
+
+# RUN openssl req -x509 -nodes -days 365 -newkey rsa:2048 -keyout /etc/nginx/ssl/www.598623u-no-on.fr.key -out /etc/nginx/ssl/www.598623u-no-on.fr.crt \
+# -subj "/C=US/ST=New Sweden/L=Stockholm/O=NGINX/OU=NGINX/CN=www.598623u-no-on.fr/emailAddress=nicolas.ourdouille@outlook.fr"
+
 
 ENV DOCKER_ENV true
-
+ENV APP_ENV=prod
+RUN rm -rf .env.local
