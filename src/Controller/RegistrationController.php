@@ -234,6 +234,106 @@ class RegistrationController extends AbstractController
         }
     }
 
+    #[Route('/get-user-source', name: 'get_user_source')]
+    public function getUserSource(Request $request, UserRepository $userRepository): Response
+    {
+        $data = json_decode($request->getContent(), true);
+
+        try {
+            $userUid = $data["username"];
+            $user = $userRepository->findOneByUid($userUid);
+
+            if ($user) 
+            {
+                $monEmail = $user->getEmail();
+                $monDomaine = strtolower(substr(strrchr($monEmail, '@'), 1));
+                if($monDomaine==="pbchampagne.org"){
+                    $user->setSource($monDomaine);
+                    $userRepository->save($user,true);
+                    return new JsonResponse([
+                        'traited' => true,
+                        'domaine' => "pbchampagne.org",
+                        'nom' => "Association Papillons Blanc Champagne",
+                        'information' => "Vous avez été reconnue comme fessant partie de l'APBC, vous êtes donc autorisé à utiliser l'application.",
+                        'message' => "Votre email a été reconnue."
+                    ]);
+                }
+                return new JsonResponse([
+                    'messageCL' => 'Email non reconnue.'
+                ]);
+            }
+            return new JsonResponse([
+                'error' => 'error'
+            ]);
+
+        }
+        catch (\Exception $ex) {
+            return new JsonResponse([
+                'error' => 'error'
+            ]);
+        }
+    }
+
+    #[Route('/set-user-source', name: 'set_user_source')]
+    public function setUserSource(Request $request, UserRepository $userRepository): Response
+    {
+        $data = json_decode($request->getContent(), true);
+
+        try {
+            $userUid = $data["username"];
+            $userSourceNom = $data["source"]["nom"];
+            $user = $userRepository->findOneByUid($userUid);
+            if ($user) 
+            {
+                $user->setSource($userSourceNom);
+                $userRepository->save($user,true);
+                return new JsonResponse([
+                    'traited' => true,
+                    'message' => "Source sauvegardée."
+                ]);
+
+            }
+            return new JsonResponse([
+                'error' => 'error'
+            ]);
+
+        }
+        catch (\Exception $ex) {
+            return new JsonResponse([
+                'error' => 'error'
+            ]);
+        }
+    }
+
+    #[Route('/check-user-source', name: 'check_user_source')]
+    public function checkUserSource(Request $request, UserRepository $userRepository): Response
+    {
+        $data = json_decode($request->getContent(), true);
+
+        try {
+            $userUid = $data["username"];
+            $user = $userRepository->findOneByUid($userUid);
+            if ($user) 
+            {
+                if($user->getSource()){
+                    return new JsonResponse([
+                        'traited' => true,
+                        'message' => "Source valide."
+                    ]);
+                }
+
+            }
+            return new JsonResponse([
+                'error' => 'error'
+            ]);
+
+        }
+        catch (\Exception $ex) {
+            return new JsonResponse([
+                'error' => 'error'
+            ]);
+        }
+    }
 
     private function makeToken(
         JWTService $jwtService,

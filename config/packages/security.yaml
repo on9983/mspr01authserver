@@ -17,22 +17,22 @@ security:
             lazy: true
             provider: app_user_provider
 
-            # logout:
-            #     path: app_logout
+            # # logout:
+            # #     path: app_logout
 
-            # form_login:
-            #     login_path: app_login #redirects unauthenticated visitors to the login_path
-            #     check_path: app_login
-            #     enable_csrf: true
+            # # form_login:
+            # #     login_path: app_login #redirects unauthenticated visitors to the login_path
+            # #     check_path: app_login
+            # #     enable_csrf: true
 
-            json_login:
-                check_path: app_jsonLogin
+            # json_login:
+            #     check_path: app_jsonLogin
                 
-            # activate different ways to authenticate
-            # https://symfony.com/doc/current/security.html#the-firewall
+            # # activate different ways to authenticate
+            # # https://symfony.com/doc/current/security.html#the-firewall
 
-            # https://symfony.com/doc/current/security/impersonating_user.html
-            # switch_user: true
+            # # https://symfony.com/doc/current/security/impersonating_user.html
+            # # switch_user: true
 
     # Easy way to control access for large sections of your site
     # Note: Only the *first* access control that matches will be used

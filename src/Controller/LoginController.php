@@ -22,34 +22,49 @@ class LoginController extends AbstractController
 {
 
     #[Route(path: '/jsonLogin', name: 'app_jsonLogin', methods: ['POST'])]
-    public function jsonLogin(#[CurrentUser] ?User $user,UserRepository $userRepository)
+    // public function jsonLogin(#[CurrentUser] ?User $user,UserRepository $userRepository)
+    public function jsonLogin(Request $request, UserRepository $userRepository)
     {
 
-        $user = $this->getUser();
-        $user = $userRepository->findOneByEmail($user->getUserIdentifier());
+        // $user = $this->getUser();
+        // $user = $userRepository->findOneByEmail($user->getUserIdentifier());
 
-        if ($user) 
-        {
-            if($user->isActive())
+        $data = json_decode($request->getContent(), true);
+
+        try {
+            $userEmail = $data["username"];
+            $user = $userRepository->findOneByEmail($userEmail);
+
+            if ($user) 
             {
-                return new JsonResponse([
-                    'traited' => true,
-                    'uid' => $user->getUid(),
-                    'message' => "Connecté avec success."
-                ]);
+                if($user->isActive())
+                {
+                    return new JsonResponse([
+                        'traited' => true,
+                        'uid' => $user->getUid(),
+                        'message' => "Connecté avec success."
+                    ]);
+                }
+                else
+                {
+                    return new JsonResponse([
+                        'message' => "Votre compte à été déactivé pour un certain temps."
+                    ]);
+                }
             }
-            else
-            {
-                return new JsonResponse([
-                    'message' => "Votre compte à été déactivé pour un certain temps."
-                ]);
-            }
+
+            // return $this->json([
+            //     'message' => 'missing credentials',
+            // ], Response::HTTP_UNAUTHORIZED);
+
+            return new JsonResponse([
+                'error' => 'error'
+            ]);
+        } catch (\Exception $ex) {
+            return new JsonResponse([
+                'error' => 'error'
+            ]);
         }
-
-        return $this->json([
-            'message' => 'missing credentials',
-        ], Response::HTTP_UNAUTHORIZED);
-
 
     }
 
