@@ -23,7 +23,7 @@ class LoginController extends AbstractController
 
     #[Route(path: '/jsonLogin', name: 'app_jsonLogin', methods: ['POST'])]
     // public function jsonLogin(#[CurrentUser] ?User $user,UserRepository $userRepository)
-    public function jsonLogin(Request $request, UserRepository $userRepository)
+    public function jsonLogin(Request $request, UserRepository $userRepository, UserPasswordHasherInterface $userPasswordHasher)
     {
 
         // $user = $this->getUser();
@@ -33,20 +33,26 @@ class LoginController extends AbstractController
 
         try {
             $userEmail = $data["username"];
+            $userPw = $data['password'];
             $user = $userRepository->findOneByEmail($userEmail);
 
-            if ($user) 
-            {
-                if($user->isActive())
-                {
+            if ($user) {
+                if ($user->isActive()) {
+
+                    if ($userPasswordHasher->isPasswordValid($user, $userPw)) {
+                        return new JsonResponse([
+                            'traited' => true,
+                            'uid' => $user->getUid(),
+                            'message' => "Connecté avec success."
+                        ]);
+                    }
+
                     return new JsonResponse([
-                        'traited' => true,
-                        'uid' => $user->getUid(),
-                        'message' => "Connecté avec success."
+                        'error' => 'error',
+                        'message' => "Mot de passe invalide.",
                     ]);
-                }
-                else
-                {
+
+                } else {
                     return new JsonResponse([
                         'message' => "Votre compte à été déactivé pour un certain temps."
                     ]);
@@ -84,8 +90,7 @@ class LoginController extends AbstractController
             $userEmail = $data["username"];
             $user = $userRepository->findOneByEmail($userEmail);
 
-            if($user->isActive())
-            {
+            if ($user->isActive()) {
                 // $token = $tokenGeneratorInterface->generateToken();
                 $token = $randomString->generate();
                 $user->setJeton($token);
@@ -93,7 +98,7 @@ class LoginController extends AbstractController
                 $user->setJetonExpiration($now->getTimestamp() + 900);
 
                 $userRepository->save($user, true);
-                
+
                 try {
                     $sendMailService->send(
                         'mail-checker.onbot-noreply@gmail.com',
@@ -111,9 +116,7 @@ class LoginController extends AbstractController
                         'error' => 'error'
                     ]);
                 }
-            }
-            else
-            {
+            } else {
                 return new JsonResponse([
                     'message' => "Votre compte à été déactivé pour un certain temps."
                 ]);
@@ -129,10 +132,9 @@ class LoginController extends AbstractController
     #[Route('/mdpchange', name: 'verify_mdpchange')]
     public function verifyMdpChange(
         Request $request,
-        UserPasswordHasherInterface $userPasswordHasher, 
+        UserPasswordHasherInterface $userPasswordHasher,
         UserRepository $userRepository
-    ): Response
-    {
+    ): Response {
         $data = json_decode($request->getContent(), true);
 
         try {
@@ -141,17 +143,13 @@ class LoginController extends AbstractController
             $userPw = $data["password"];
 
             $user = $userRepository->findOneByEmail($userEmail);
-            if ($user) 
-            {
+            if ($user) {
                 $now = new DateTimeImmutable();
                 $jetonVerif = $user->getJeton();
 
-                if($jetonVerif)
-                {
-                    if($jetonVerif === $userJeton)
-                    {
-                        if($user->getJetonExpiration() > $now->getTimestamp()) 
-                        {
+                if ($jetonVerif) {
+                    if ($jetonVerif === $userJeton) {
+                        if ($user->getJetonExpiration() > $now->getTimestamp()) {
                             $user->setPassword(
                                 $userPasswordHasher->hashPassword(
                                     $user,
@@ -167,7 +165,7 @@ class LoginController extends AbstractController
                                     'traited' => true,
                                     'message' => "Le mot de passe a été modifié avec success."
                                 ]);
-                            }else{
+                            } else {
                                 $user->setIsVerified(true);
                                 $userRepository->save($user, true);
 
@@ -176,9 +174,7 @@ class LoginController extends AbstractController
                                     'message' => "Le mot de passe a été modifié avec success. Votre email à également été validé."
                                 ]);
                             }
-                        }
-                        else
-                        {
+                        } else {
                             return new JsonResponse([
                                 'error' => 'error',
                                 'message' => "Le jeton a expiré."
@@ -195,8 +191,7 @@ class LoginController extends AbstractController
                 'error' => 'error',
             ]);
 
-        }
-        catch (\Exception $ex) {
+        } catch (\Exception $ex) {
             return new JsonResponse([
                 'error' => 'error'
             ]);
