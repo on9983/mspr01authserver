@@ -163,6 +163,7 @@ class LoginController extends AbstractController
                             if ($user->isVerified()) {
                                 return new JsonResponse([
                                     'traited' => true,
+                                    'uid' => $user->getUid(),
                                     'message' => "Le mot de passe a été modifié avec success."
                                 ]);
                             } else {
@@ -171,6 +172,7 @@ class LoginController extends AbstractController
 
                                 return new JsonResponse([
                                     'traited' => true,
+                                    'uid' => $user->getUid(),
                                     'message' => "Le mot de passe a été modifié avec success. Votre email à également été validé."
                                 ]);
                             }

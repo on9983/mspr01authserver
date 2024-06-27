@@ -4,5 +4,5 @@ docker build . -t ghcr.io/on9983/just-test2-authserv:latest
 
 docker push ghcr.io/on9983/just-test2-authserv:latest
 
-
+serv-> docker pull ghcr.io/on9983/just-test2-authserv:latest
 
