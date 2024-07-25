@@ -49,6 +49,12 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     #[ORM\Column(length: 255, nullable: true)]
     private ?string $source = null;
 
+    #[ORM\Column(nullable: true)]
+    private ?int $nbDeSignalement = null;
+
+    #[ORM\Column(nullable: true)]
+    private ?int $SignalExpiration = null;
+
 
 
 
@@ -190,6 +196,30 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     public function setSource(?string $source): self
     {
         $this->source = $source;
+
+        return $this;
+    }
+
+    public function getNbDeSignalement(): ?int
+    {
+        return $this->nbDeSignalement;
+    }
+
+    public function setNbDeSignalement(?int $nbDeSignalement): self
+    {
+        $this->nbDeSignalement = $nbDeSignalement;
+
+        return $this;
+    }
+
+    public function getSignalExpiration(): ?int
+    {
+        return $this->SignalExpiration;
+    }
+
+    public function setSignalExpiration(?int $SignalExpiration): self
+    {
+        $this->SignalExpiration = $SignalExpiration;
 
         return $this;
     }

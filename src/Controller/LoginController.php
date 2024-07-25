@@ -35,7 +35,6 @@ class LoginController extends AbstractController
             $userEmail = $data["username"];
             $userPw = $data['password'];
             $user = $userRepository->findOneByEmail($userEmail);
-
             if ($user) {
                 if ($user->isActive()) {
 

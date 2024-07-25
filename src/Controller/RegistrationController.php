@@ -58,7 +58,6 @@ class RegistrationController extends AbstractController
 
             $findUserByEmail = $userRepository->findOneByEmail($userEmail);
             if ($findUserByEmail === null) {
-
                 $user = new User();
                 $user->setEmail($userEmail);
                 $user->setPassword(
@@ -67,7 +66,6 @@ class RegistrationController extends AbstractController
                         $userPw
                     )
                 );
-                
                 
                 // Uid Generation
 
@@ -85,7 +83,6 @@ class RegistrationController extends AbstractController
 
                 $user->setActive(true);
                 
-
                 $entityManager->persist($user);
                 $entityManager->flush();
 

@@ -41,18 +41,68 @@ class VeilleController extends AbstractController
 
             $user = $userRepository->findOneByUid($uid);
             if ($user) {
-                if (array_key_exists('autoContact', $data["dataForm"])) {
-                    if (getenv('APP_ENV') === "prod") {
+                $now = new DateTimeImmutable();
+                if($user->getNbDeSignalement() === null){
+                    $user->setNbDeSignalement(0);
+                }
+                if ($user->getSignalExpiration()) {
+                    if ($now->getTimestamp() > $user->getSignalExpiration()) {
+                        $user->setNbDeSignalement(0);
+                    }
+                }
+                if ($user->getNbDeSignalement() < 3) {
+                    $user->setSignalExpiration($now->getTimestamp() + 1800);
+                    $user->setNbDeSignalement($user->getNbDeSignalement() + 1);
+                    $userRepository->save($user, true);
+                    if (array_key_exists('autoContact', $data["dataForm"])) {
+                        if (getenv('APP_ENV') === "prod") {
+                            try {
+                                $sendMailService->send(
+                                    'mail-checker.onbot-noreply@gmail.com',
+                                    "nicolas.ourdouille@outlook.fr",
+                                    'Erreur détecté sur GVR',
+                                    'autocontact',
+                                    [
+                                        'qui' => $user->getEmail(),
+                                        'page' => $data["dataForm"]['autoContact']['page'],
+                                        'action' => $data["dataForm"]['autoContact']['action'],
+                                    ]
+                                );
+                                return new JsonResponse([
+                                    'traited' => true,
+                                    'message' => "Email envoyé."
+                                ]);
+                            } catch (\Exception $ex) {
+                                return new JsonResponse([
+                                    'error' => $this->devOnly->displayError($ex->getMessage())
+                                ]);
+                            }
+                        }
+                    }
+
+                    if (array_key_exists('clientContact', $data["dataForm"])) {
                         try {
                             $sendMailService->send(
                                 'mail-checker.onbot-noreply@gmail.com',
                                 "nicolas.ourdouille@outlook.fr",
-                                'Erreur détecté sur GVR',
-                                'autocontact',
+                                'Message de GVR',
+                                'nouscontacter',
                                 [
+                                    'titre' => $data["dataForm"]['clientContact']['titre'],
+                                    'text' => $data["dataForm"]['clientContact']['text'],
                                     'qui' => $user->getEmail(),
-                                    'page' => $data["dataForm"]['autoContact']['page'],
-                                    'action' => $data["dataForm"]['autoContact']['action'],
+                                ]
+                            );
+
+                            $sendMailService->send(
+                                'mail-checker.onbot-noreply@gmail.com',
+                                $user->getEmail(),
+                                'Copie de votre message',
+                                'nouscontacter',
+                                [
+                                    'titre' => $data["dataForm"]['clientContact']['titre'],
+                                    'text' => $data["dataForm"]['clientContact']['text'],
+                                    'qui' => "",
                                 ]
                             );
                             return new JsonResponse([
@@ -65,42 +115,11 @@ class VeilleController extends AbstractController
                             ]);
                         }
                     }
-                }
-
-                if (array_key_exists('clientContact', $data["dataForm"])) {
-                    try {
-                        $sendMailService->send(
-                            'mail-checker.onbot-noreply@gmail.com',
-                            "nicolas.ourdouille@outlook.fr",
-                            'Message de GVR',
-                            'nouscontacter',
-                            [
-                                'titre' => $data["dataForm"]['clientContact']['titre'],
-                                'text' => $data["dataForm"]['clientContact']['text'],
-                                'qui' => $user->getEmail(),
-                            ]
-                        );
-
-                        $sendMailService->send(
-                            'mail-checker.onbot-noreply@gmail.com',
-                            $user->getEmail(),
-                            'Copie de votre message',
-                            'nouscontacter',
-                            [
-                                'titre' => $data["dataForm"]['clientContact']['titre'],
-                                'text' => $data["dataForm"]['clientContact']['text'],
-                                'qui' => "",
-                            ]
-                        );
-                        return new JsonResponse([
-                            'traited' => true,
-                            'message' => "Email envoyé."
-                        ]);
-                    } catch (\Exception $ex) {
-                        return new JsonResponse([
-                            'error' => $this->devOnly->displayError($ex->getMessage())
-                        ]);
-                    }
+                } else {
+                    return new JsonResponse([
+                        'error' => 'error',
+                        'message' => 'Nb de signalement épuisé.'
+                    ]);
                 }
             }
             return new JsonResponse([
