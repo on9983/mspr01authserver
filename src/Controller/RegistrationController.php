@@ -9,6 +9,7 @@ use App\Security\EmailVerifier;
 use App\Service\DevOnly;
 use App\Service\JWTService;
 use App\Service\RandomString;
+use App\Service\RetardFunction;
 use App\Service\SendMailService;
 use DateTimeImmutable;
 use Doctrine\ORM\EntityManagerInterface;
@@ -30,15 +31,16 @@ use SymfonyCasts\Bundle\VerifyEmail\Exception\VerifyEmailExceptionInterface;
 class RegistrationController extends AbstractController
 {
 
-    
+
 
     public function __construct(
         private EmailVerifier $emailVerifier,
         private DevOnly $devOnly,
-        )
-    {
+        private RetardFunction $retardFunction,
+    ) {
         $this->emailVerifier = $emailVerifier;
         $this->devOnly = $devOnly;
+        $this->retardFunction = $retardFunction;
     }
 
     #[Route('/register', name: 'app_register', methods: ['POST'])]
@@ -52,7 +54,7 @@ class RegistrationController extends AbstractController
     ): Response {
         try {
             $data = json_decode($request->getContent(), true);
-        
+
             $userEmail = $data["username"];
             $userPw = $data["password"];
 
@@ -66,25 +68,29 @@ class RegistrationController extends AbstractController
                         $userPw
                     )
                 );
-                
+
                 // Uid Generation
 
                 $users = $userRepository->findAll();
                 restart:
-                $user->setUid(bin2hex(random_bytes(8)."_".random_bytes(8)));
-                $a=true;
-                foreach($users as $user_i) {
-                    if($user_i->getUid() === $user->getUid()){
-                        $a=false;
+                $user->setUid(bin2hex(random_bytes(8) . "_" . random_bytes(8)));
+                $a = true;
+                foreach ($users as $user_i) {
+                    if ($user_i->getUid() === $user->getUid()) {
+                        $a = false;
                         break;
                     }
                 }
-                if($a==false){goto restart;}
+                if ($a == false) {
+                    goto restart;
+                }
 
                 $user->setActive(true);
-                
+
                 $entityManager->persist($user);
                 $entityManager->flush();
+
+                $this->retardFunction->RunDeleteNonValideUser($user->getEmail());
 
                 return new JsonResponse([
                     'traited' => true,
@@ -92,14 +98,23 @@ class RegistrationController extends AbstractController
                 ]);
 
             } else {
-                return new JsonResponse([
-                    'message' => "Compte déja existant."
-                ]);
+                if ($findUserByEmail->isVerified()) {
+                    return new JsonResponse([
+                        'message' => "Compte déja existant."
+                    ]);
+                } else {
+                    return new JsonResponse([
+                        'message' => "Compte déja existant. Il sera automatiquement supprimé au bout de 15 minutes si il n'est pas validé par email."
+                    ]);
+                }
+
             }
 
         } catch (\Exception $ex) {
             return new JsonResponse([
-                'error' => $this->devOnly->displayError($ex->getMessage())
+                'critique' => 'error',
+                'error' => $this->devOnly->displayError($ex->getMessage()),
+                'message' => 'une erreur est survenue'
             ]);
         }
     }
@@ -115,16 +130,12 @@ class RegistrationController extends AbstractController
             $userJeton = $data["jeton"];
 
             $user = $userRepository->findOneByUid($userUid);
-            if ($user) 
-            {
+            if ($user) {
                 $now = new DateTimeImmutable();
                 $jetonVerif = $user->getJeton();
-                if($jetonVerif)
-                {
-                    if($jetonVerif === $userJeton)
-                    {
-                        if($user->getJetonExpiration() > $now->getTimestamp()) 
-                        {
+                if ($jetonVerif) {
+                    if ($jetonVerif === $userJeton) {
+                        if ($user->getJetonExpiration() > $now->getTimestamp()) {
                             $user->setIsVerified(true);
                             $user->setJetonExpiration(null);
                             $user->setJeton(null);
@@ -135,9 +146,7 @@ class RegistrationController extends AbstractController
                                 'uid' => $user->getUid(),
                                 'message' => "Votre email a été validé avec success."
                             ]);
-                        }
-                        else
-                        {
+                        } else {
                             return new JsonResponse([
                                 'error' => 'error',
                                 'message' => "Le jeton a expiré."
@@ -155,23 +164,21 @@ class RegistrationController extends AbstractController
                 'message' => 'Utilisateur non valide. Le compte a peut-etre été supprimé.'
             ]);
 
-        }
-        catch (\Exception $ex) {
+        } catch (\Exception $ex) {
             return new JsonResponse([
                 'error' => 'error'
             ]);
         }
     }
 
-     #[Route('/register/sendverif', name: 'send_verif')]
+    #[Route('/register/sendverif', name: 'send_verif')]
     public function sendVerif(
-        Request $request, 
-        JWTService $jwtService, 
-        SendMailService $sendMailService, 
+        Request $request,
+        JWTService $jwtService,
+        SendMailService $sendMailService,
         UserRepository $userRepository,
         RandomString $randomString,
-    ): Response
-    {
+    ): Response {
         try {
             $data = json_decode($request->getContent(), true);
             $userUid = $data["username"];
@@ -179,10 +186,8 @@ class RegistrationController extends AbstractController
             $user = $userRepository->findOneByUid($userUid);
 
             #$this->makeToken($jwtService,$findUserByEmail);
-            if ($user) 
-            {
-                if($user->isActive())
-                {
+            if ($user) {
+                if ($user->isActive()) {
                     if ($user->IsVerified()) {
                         return new JsonResponse([
                             'message' => "Email déja validé."
@@ -240,13 +245,12 @@ class RegistrationController extends AbstractController
             $userUid = $data["username"];
             $user = $userRepository->findOneByUid($userUid);
 
-            if ($user) 
-            {
+            if ($user) {
                 $monEmail = $user->getEmail();
                 $monDomaine = strtolower(substr(strrchr($monEmail, '@'), 1));
-                if($monDomaine==="pbchampagne.org"){
+                if ($monDomaine === "pbchampagne.org") {
                     $user->setSource($monDomaine);
-                    $userRepository->save($user,true);
+                    $userRepository->save($user, true);
                     return new JsonResponse([
                         'traited' => true,
                         'domaine' => "pbchampagne.org",
@@ -263,8 +267,7 @@ class RegistrationController extends AbstractController
                 'error' => 'error'
             ]);
 
-        }
-        catch (\Exception $ex) {
+        } catch (\Exception $ex) {
             return new JsonResponse([
                 'error' => 'error'
             ]);
@@ -280,10 +283,9 @@ class RegistrationController extends AbstractController
             $userUid = $data["username"];
             $userSourceNom = $data["source"]["nom"];
             $user = $userRepository->findOneByUid($userUid);
-            if ($user) 
-            {
+            if ($user) {
                 $user->setSource($userSourceNom);
-                $userRepository->save($user,true);
+                $userRepository->save($user, true);
                 return new JsonResponse([
                     'traited' => true,
                     'message' => "Source sauvegardée."
@@ -294,8 +296,7 @@ class RegistrationController extends AbstractController
                 'error' => 'error'
             ]);
 
-        }
-        catch (\Exception $ex) {
+        } catch (\Exception $ex) {
             return new JsonResponse([
                 'error' => 'error'
             ]);
@@ -310,9 +311,8 @@ class RegistrationController extends AbstractController
         try {
             $userUid = $data["username"];
             $user = $userRepository->findOneByUid($userUid);
-            if ($user) 
-            {
-                if($user->getSource()){
+            if ($user) {
+                if ($user->getSource()) {
                     return new JsonResponse([
                         'traited' => true,
                         'message' => "Source valide."
@@ -324,8 +324,7 @@ class RegistrationController extends AbstractController
                 'error' => 'error'
             ]);
 
-        }
-        catch (\Exception $ex) {
+        } catch (\Exception $ex) {
             return new JsonResponse([
                 'error' => 'error'
             ]);
@@ -335,8 +334,7 @@ class RegistrationController extends AbstractController
     private function makeToken(
         JWTService $jwtService,
         User $user
-    ):String
-    {
+    ): string {
         $header = [
             "typ" => "JWT",
             "alg" => 'HS256'
