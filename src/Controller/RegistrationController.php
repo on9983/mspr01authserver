@@ -60,7 +60,7 @@ class RegistrationController extends AbstractController
 
             $findUserByEmail = $userRepository->findOneByEmail($userEmail);
             if ($findUserByEmail === null) {
-                sleep(4);
+                sleep(2);
                 $user = new User();
                 $user->setEmail($userEmail);
                 $user->setPassword(

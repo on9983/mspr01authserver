@@ -40,11 +40,15 @@ class CompteController extends AbstractController
 
             $user = $userRepository->findOneByUid($uid);
             if ($user) {
-                $userRepository->remove($user);
+                $userRepository->remove($user, true);
+                return new JsonResponse([
+                    'traited' => true,
+                    'message' => "Votre compte a été supprimé avec succès."
+                ]);
             }
             return new JsonResponse([
-                'traited' => true,
-                'message' => "Votre compte a été supprimé avec succès."
+                'error' => 'error',
+                'message' => "Utilisateur inconnue."
             ]);
 
         } catch (\Exception $ex) {
