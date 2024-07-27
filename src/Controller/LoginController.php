@@ -90,31 +90,36 @@ class LoginController extends AbstractController
             $user = $userRepository->findOneByEmail($userEmail);
 
             if ($user->isActive()) {
-                // $token = $tokenGeneratorInterface->generateToken();
-                $token = $randomString->generate();
-                $user->setJeton($token);
-                $now = new DateTimeImmutable();
-                $user->setJetonExpiration($now->getTimestamp() + 900);
+                if ($sendMailService->checkNbEnvoie($user)) {
+                    // $token = $tokenGeneratorInterface->generateToken();
+                    $token = $randomString->generate();
+                    $user->setJeton($token);
+                    $now = new DateTimeImmutable();
+                    $user->setJetonExpiration($now->getTimestamp() + 900);
 
-                $userRepository->save($user, true);
+                    $userRepository->save($user, true);
 
-                try {
-                    $sendMailService->send(
-                        'mail-checker.onbot-noreply@gmail.com',
-                        $userEmail,
-                        'Changement de mot de passe de votre compte',
-                        'pwd-change',
-                        compact('token')
-                    );
-                    return new JsonResponse([
-                        'traited' => true,
-                        'message' => "Un email de changement de mot de pass a été envoyé."
-                    ]);
-                } catch (\Exception $ex) {
-                    return new JsonResponse([
-                        'error' => 'error'
-                    ]);
+                    try {
+                        $sendMailService->send(
+                            'mail-checker.onbot-noreply@gmail.com',
+                            $userEmail,
+                            'Changement de mot de passe de votre compte',
+                            'pwd-change',
+                            compact('token')
+                        );
+                        return new JsonResponse([
+                            'traited' => true,
+                            'message' => "Un email de changement de mot de pass a été envoyé."
+                        ]);
+                    } catch (\Exception $ex) {
+                        return new JsonResponse([
+                            'error' => 'error'
+                        ]);
+                    }
                 }
+                return new JsonResponse([
+                    'message' => "'Nb d'envoie épuisé."
+                ]);
             } else {
                 return new JsonResponse([
                     'message' => "Votre compte à été déactivé pour un certain temps."

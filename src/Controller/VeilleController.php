@@ -41,19 +41,7 @@ class VeilleController extends AbstractController
 
             $user = $userRepository->findOneByUid($uid);
             if ($user) {
-                $now = new DateTimeImmutable();
-                if($user->getNbDeSignalement() === null){
-                    $user->setNbDeSignalement(0);
-                }
-                if ($user->getSignalExpiration()) {
-                    if ($now->getTimestamp() > $user->getSignalExpiration()) {
-                        $user->setNbDeSignalement(0);
-                    }
-                }
-                if ($user->getNbDeSignalement() < 3) {
-                    $user->setSignalExpiration($now->getTimestamp() + 1800);
-                    $user->setNbDeSignalement($user->getNbDeSignalement() + 1);
-                    $userRepository->save($user, true);
+                if ($sendMailService->checkNbEnvoie($user)) {
                     if (array_key_exists('autoContact', $data["dataForm"])) {
                         if (getenv('APP_ENV') === "prod") {
                             try {

@@ -60,6 +60,7 @@ class RegistrationController extends AbstractController
 
             $findUserByEmail = $userRepository->findOneByEmail($userEmail);
             if ($findUserByEmail === null) {
+                sleep(4);
                 $user = new User();
                 $user->setEmail($userEmail);
                 $user->setPassword(
@@ -94,7 +95,7 @@ class RegistrationController extends AbstractController
 
                 return new JsonResponse([
                     'traited' => true,
-                    'message' => "Votre compte a été créé avec success."
+                    'message' => "Votre compte a été créé avec success. Il sera supprimé dans 10 minutes si il n'est pas validé par email."
                 ]);
 
             } else {
@@ -188,39 +189,44 @@ class RegistrationController extends AbstractController
             #$this->makeToken($jwtService,$findUserByEmail);
             if ($user) {
                 if ($user->isActive()) {
-                    if ($user->IsVerified()) {
-                        return new JsonResponse([
-                            'message' => "Email déja validé."
-                        ]);
+                    if ($sendMailService->checkNbEnvoie($user)) {
+                        if ($user->IsVerified()) {
+                            return new JsonResponse([
+                                'message' => "Email déja validé."
+                            ]);
+                        }
+
+                        $token = $randomString->generate();
+                        $user->setJeton($token);
+                        $now = new DateTimeImmutable();
+                        $user->setJetonExpiration($now->getTimestamp() + 900);
+
+                        $userRepository->save($user, true);
+
+                        try {
+                            $sendMailService->send(
+                                'mail-checker.onbot-noreply@gmail.com',
+                                $user->getEmail(),
+                                'Activation de votre compte',
+                                'register',
+                                compact('token')
+                            );
+                            return new JsonResponse([
+                                'traited' => true,
+                                'message' => "Email de vérification envoyé."
+                            ]);
+                        } catch (\Exception $ex) {
+                            return new JsonResponse([
+                                'error' => $this->devOnly->displayError($ex->getMessage())
+                            ]);
+                        }
+
+
+
                     }
-
-                    $token = $randomString->generate();
-                    $user->setJeton($token);
-                    $now = new DateTimeImmutable();
-                    $user->setJetonExpiration($now->getTimestamp() + 900);
-
-                    $userRepository->save($user, true);
-
-                    try {
-                        $sendMailService->send(
-                            'mail-checker.onbot-noreply@gmail.com',
-                            $user->getEmail(),
-                            'Activation de votre compte',
-                            'register',
-                            compact('token')
-                        );
-                        return new JsonResponse([
-                            'traited' => true,
-                            'message' => "Email de vérification envoyé."
-                        ]);
-                    } catch (\Exception $ex) {
-                        return new JsonResponse([
-                            'error' => $this->devOnly->displayError($ex->getMessage())
-                        ]);
-                    }
-
-
-
+                    return new JsonResponse([
+                        'message' => "'Nb d'envoie épuisé."
+                    ]);
                 }
                 return new JsonResponse([
                     'message' => "Votre compte à été déactivé pour un certain temps."
