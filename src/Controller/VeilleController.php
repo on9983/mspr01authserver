@@ -62,7 +62,7 @@ class VeilleController extends AbstractController
                                 ]);
                             } catch (\Exception $ex) {
                                 return new JsonResponse([
-                                    'error' => $this->devOnly->displayError($ex->getMessage())
+                                    'critique' => $this->devOnly->displayError($ex->getMessage())
                                 ]);
                             }
                         }
@@ -99,7 +99,7 @@ class VeilleController extends AbstractController
                             ]);
                         } catch (\Exception $ex) {
                             return new JsonResponse([
-                                'error' => $this->devOnly->displayError($ex->getMessage())
+                                'critique' => $this->devOnly->displayError($ex->getMessage())
                             ]);
                         }
                     }
@@ -116,7 +116,7 @@ class VeilleController extends AbstractController
 
         } catch (\Exception $ex) {
             return new JsonResponse([
-                'error' => 'error'
+                'critique' => $this->devOnly->displayError($ex->getMessage())
             ]);
         }
     }

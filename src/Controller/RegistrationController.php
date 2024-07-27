@@ -113,9 +113,7 @@ class RegistrationController extends AbstractController
 
         } catch (\Exception $ex) {
             return new JsonResponse([
-                'critique' => 'error',
-                'error' => $this->devOnly->displayError($ex->getMessage()),
-                'message' => 'une erreur est survenue'
+                'critique' => $this->devOnly->displayError($ex->getMessage())
             ]);
         }
     }
@@ -167,7 +165,7 @@ class RegistrationController extends AbstractController
 
         } catch (\Exception $ex) {
             return new JsonResponse([
-                'error' => 'error'
+                'critique' => $this->devOnly->displayError($ex->getMessage())
             ]);
         }
     }
@@ -217,7 +215,7 @@ class RegistrationController extends AbstractController
                             ]);
                         } catch (\Exception $ex) {
                             return new JsonResponse([
-                                'error' => $this->devOnly->displayError($ex->getMessage())
+                                'critique' => $this->devOnly->displayError($ex->getMessage())
                             ]);
                         }
 
@@ -237,7 +235,7 @@ class RegistrationController extends AbstractController
             ]);
         } catch (\Exception $ex) {
             return new JsonResponse([
-                'error' => $this->devOnly->displayError($ex->getMessage())
+                'critique' => $this->devOnly->displayError($ex->getMessage())
             ]);
         }
     }
@@ -275,7 +273,7 @@ class RegistrationController extends AbstractController
 
         } catch (\Exception $ex) {
             return new JsonResponse([
-                'error' => 'error'
+                'critique' => $this->devOnly->displayError($ex->getMessage())
             ]);
         }
     }
@@ -304,7 +302,7 @@ class RegistrationController extends AbstractController
 
         } catch (\Exception $ex) {
             return new JsonResponse([
-                'error' => 'error'
+                'critique' => $this->devOnly->displayError($ex->getMessage())
             ]);
         }
     }
@@ -332,7 +330,7 @@ class RegistrationController extends AbstractController
 
         } catch (\Exception $ex) {
             return new JsonResponse([
-                'error' => 'error'
+                'critique' => $this->devOnly->displayError($ex->getMessage())
             ]);
         }
     }

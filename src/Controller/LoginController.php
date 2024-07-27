@@ -4,6 +4,7 @@ namespace App\Controller;
 
 use App\Entity\User;
 use App\Repository\UserRepository;
+use App\Service\DevOnly;
 use App\Service\JWTService;
 use App\Service\RandomString;
 use App\Service\SendMailService;
@@ -20,6 +21,11 @@ use Symfony\Component\Security\Http\Authentication\AuthenticationUtils;
 
 class LoginController extends AbstractController
 {
+    public function __construct(
+        private DevOnly $devOnly,
+    ) {
+        $this->devOnly = $devOnly;
+    }
 
     #[Route(path: '/jsonLogin', name: 'app_jsonLogin', methods: ['POST'])]
     // public function jsonLogin(#[CurrentUser] ?User $user,UserRepository $userRepository)
@@ -67,7 +73,7 @@ class LoginController extends AbstractController
             ]);
         } catch (\Exception $ex) {
             return new JsonResponse([
-                'error' => 'error'
+                'critique' => $this->devOnly->displayError($ex->getMessage())
             ]);
         }
 
@@ -113,7 +119,7 @@ class LoginController extends AbstractController
                         ]);
                     } catch (\Exception $ex) {
                         return new JsonResponse([
-                            'error' => 'error'
+                            'critique' => $this->devOnly->displayError($ex->getMessage())
                         ]);
                     }
                 }
@@ -128,7 +134,7 @@ class LoginController extends AbstractController
 
         } catch (\Exception $ex) {
             return new JsonResponse([
-                'error' => 'error'
+                'critique' => $this->devOnly->displayError($ex->getMessage())
             ]);
         }
     }
@@ -196,10 +202,10 @@ class LoginController extends AbstractController
             return new JsonResponse([
                 'error' => 'error',
             ]);
-
+            
         } catch (\Exception $ex) {
             return new JsonResponse([
-                'error' => 'error'
+                'critique' => $this->devOnly->displayError($ex->getMessage())
             ]);
         }
     }
