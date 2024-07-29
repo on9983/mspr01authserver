@@ -43,7 +43,7 @@ class VeilleController extends AbstractController
             if ($user) {
                 if ($sendMailService->checkNbEnvoie($user)) {
                     if (array_key_exists('autoContact', $data["dataForm"])) {
-                        if (getenv('APP_ENV') === "prod") {
+                        if ($_ENV["APP_ENV"] === "prod") {
                             try {
                                 $sendMailService->send(
                                     'mail-checker.onbot-noreply@gmail.com',
@@ -54,6 +54,7 @@ class VeilleController extends AbstractController
                                         'qui' => $user->getEmail(),
                                         'page' => $data["dataForm"]['autoContact']['page'],
                                         'action' => $data["dataForm"]['autoContact']['action'],
+                                        'erreur' => $data["dataForm"]['autoContact']['erreur'],
                                     ]
                                 );
                                 return new JsonResponse([
@@ -66,6 +67,10 @@ class VeilleController extends AbstractController
                                 ]);
                             }
                         }
+                        return new JsonResponse([
+                            'error' => 'error',
+                            'message' => 'Message non envoyé car le mode dev est activé.'
+                        ]);
                     }
 
                     if (array_key_exists('clientContact', $data["dataForm"])) {
@@ -111,7 +116,7 @@ class VeilleController extends AbstractController
                 }
             }
             return new JsonResponse([
-                'error' => 'error',
+                'error' => 'error2',
             ]);
 
         } catch (\Exception $ex) {
