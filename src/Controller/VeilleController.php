@@ -43,7 +43,7 @@ class VeilleController extends AbstractController
             if ($user) {
                 if ($sendMailService->checkNbEnvoie($user)) {
                     if (array_key_exists('autoContact', $data["dataForm"])) {
-                        if ($_ENV["APP_ENV"] === "prod") {
+                        if ($_ENV["APP_ONIPROD"] === "prod") {
                             try {
                                 $sendMailService->send(
                                     'mail-checker.onbot-noreply@gmail.com',
